@@ -1,0 +1,31 @@
+# Segredos — nunca versionar
+.env
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# data/chroma_db/  ← incluído no repositório para deploy no Streamlit Cloud
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Dados brutos (pesados e/ou sensíveis)
+data/synthetic/*.csv
+data/processed/
+
+# Outputs de modelos (regeneráveis)
+outputs/
+
+# IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Misc
+*.DS_Store
+Thumbs.db

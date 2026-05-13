@@ -1,0 +1,73 @@
+{
+  "seller_id": "ML-CARLOS-2020",
+  "name": "Carlos Ferreira",
+  "category": "Eletrônicos e Acessórios",
+  "platform": "Mercado Livre",
+  "start_date": "2020-03-15",
+  "active_products": [
+    {
+      "id": "PROD001",
+      "name": "Fone de Ouvido Bluetooth JBL T510",
+      "category": "Audio",
+      "current_price": 189.9,
+      "stock": 109
+    },
+    {
+      "id": "PROD002",
+      "name": "Carregador Turbo 65W USB-C",
+      "category": "Carregadores",
+      "current_price": 89.9,
+      "stock": 131
+    },
+    {
+      "id": "PROD003",
+      "name": "Cabo USB-C para USB-C 2m",
+      "category": "Cabos",
+      "current_price": 29.9,
+      "stock": 139
+    },
+    {
+      "id": "PROD004",
+      "name": "Suporte Veicular para Celular",
+      "category": "Acessórios",
+      "current_price": 49.9,
+      "stock": 98
+    },
+    {
+      "id": "PROD005",
+      "name": "Película Vidro Temperado iPhone 15",
+      "category": "Proteção",
+      "current_price": 24.9,
+      "stock": 163
+    },
+    {
+      "id": "PROD006",
+      "name": "Hub USB 4 portas 3.0",
+      "category": "Conectividade",
+      "current_price": 79.9,
+      "stock": 15
+    },
+    {
+      "id": "PROD007",
+      "name": "Fone In-Ear Com Fio Samsung AKG",
+      "category": "Audio",
+      "current_price": 59.9,
+      "stock": 38
+    },
+    {
+      "id": "PROD008",
+      "name": "Cabo Lightning para USB 1m (Apple)",
+      "category": "Cabos",
+      "current_price": 39.9,
+      "stock": 132
+    }
+  ],
+  "avg_monthly_gmv": 28500.0,
+  "health_score": 82,
+  "churn_risk_score": 0.18,
+  "reputation_level": "MercadoLíder Gold",
+  "fulfillment_type": "Full",
+  "avg_shipping_days": 1.8,
+  "return_rate_pct": 3.1,
+  "avg_review_score": 4.7
+}

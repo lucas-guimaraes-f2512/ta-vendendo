@@ -1,0 +1,9 @@
+product_id,product_name,churn_risk_score,risk_level,main_signal
+PROD007,Fone In-Ear Com Fio Samsung AKG,0.4,Medium,queda de GMV nos últimos 30 dias (-79%)
+PROD004,Suporte Veicular para Celular,0.3,Medium,queda de GMV nos últimos 30 dias (-18%)
+PROD002,Carregador Turbo 65W USB-C,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
+PROD001,Fone de Ouvido Bluetooth JBL T510,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
+PROD003,Cabo USB-C para USB-C 2m,0.2,Low,queda de GMV nos últimos 30 dias (-20%)
+PROD005,Película Vidro Temperado iPhone 15,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
+PROD006,Hub USB 4 portas 3.0,0.2,Low,queda de GMV nos últimos 30 dias (-22%)
+PROD008,Cabo Lightning para USB 1m (Apple),0.2,Low,queda de GMV nos últimos 30 dias (-49%)

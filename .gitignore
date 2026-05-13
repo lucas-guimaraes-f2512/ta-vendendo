@@ -14,12 +14,18 @@ __pycache__/
 venv/
 env/
 
-# Dados brutos (pesados e/ou sensíveis)
+# Dados brutos — arquivos necessários para deploy estão liberados abaixo
 data/synthetic/*.csv
-data/processed/
+!data/synthetic/orders.csv
+data/processed/*
+!data/processed/weekly_gmv.csv
 
-# Outputs de modelos (regeneráveis)
-outputs/
+# Outputs — arquivos necessários para deploy estão liberados abaixo
+outputs/**
+!outputs/sprint_2/
+!outputs/sprint_2/churn_scores.csv
+!outputs/sprint_3/
+!outputs/sprint_3/forecast_summary_corrigido.csv
 
 # IDEs
 .vscode/

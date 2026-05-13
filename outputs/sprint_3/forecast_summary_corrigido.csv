@@ -1,0 +1,9 @@
+product_id,product_name,trend_direction,avg_weekly_gmv_actual,avg_weekly_gmv_forecast,pct_change
+PROD001,Fone de Ouvido Bluetooth JBL T510,growing,2032.81,3268.68,60.8
+PROD002,Carregador Turbo 65W USB-C,declining,1378.52,54.5,-96.0
+PROD003,Cabo USB-C para USB-C 2m,growing,650.99,701.4,7.7
+PROD004,Suporte Veicular para Celular,declining,681.08,557.25,-18.2
+PROD005,Película Vidro Temperado iPhone 15,growing,429.8,635.04,47.8
+PROD006,Hub USB 4 portas 3.0,declining,613.88,478.15,-22.1
+PROD007,Fone In-Ear Com Fio Samsung AKG,declining,302.87,65.23,-78.5
+PROD008,Cabo Lightning para USB 1m (Apple),declining,192.56,96.73,-49.8

@@ -18,6 +18,41 @@ sys.path.insert(0, str(SRC_DIR))
 from ai.rag import answer, answer_with_debug  # noqa: E402
 from ai.vector_store import ensure_indexed    # noqa: E402
 
+# ── Persistência do histórico de chat ─────────────────────────
+HISTORY_FILE = Path("/tmp/ta_vendendo_chat_history.json")
+
+
+def load_history() -> list:
+    """Carrega histórico salvo. Retorna lista vazia se não existir."""
+    try:
+        if HISTORY_FILE.exists():
+            data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, list) and len(data) > 0:
+                return data
+    except Exception:
+        pass
+    return [
+        {
+            "role": "assistant",
+            "content": (
+                "Olá, Carlos! Sou seu copiloto de vendas. "
+                "Posso analisar tendências, alertar sobre produtos em risco "
+                "e sugerir ações práticas. O que você quer saber hoje?"
+            ),
+        }
+    ]
+
+
+def save_history(messages: list) -> None:
+    """Salva o histórico em disco."""
+    try:
+        HISTORY_FILE.write_text(
+            json.dumps(messages, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
 
 @st.cache_resource
 def init_vector_store():
@@ -226,15 +261,70 @@ with tab_dash:
                 )
             st.divider()
 
-    # ── Filtro de produto (fora das colunas) ───────────────────
+    # ── Filtro visual com botões coloridos (fora das colunas) ────
     if not gmv_df.empty:
+        PRODUCT_COLORS = {
+            0: "#4fc3f7",  # azul claro
+            1: "#81c784",  # verde
+            2: "#ffb74d",  # laranja
+            3: "#f06292",  # rosa
+            4: "#ba68c8",  # roxo
+            5: "#4db6ac",  # teal
+            6: "#e57373",  # vermelho suave
+            7: "#fff176",  # amarelo
+        }
+
         todos_produtos = sorted(gmv_df["product_name"].unique().tolist())
-        selecionados = st.multiselect(
-            "Filtrar produtos no gráfico de GMV:",
-            options=todos_produtos,
-            default=todos_produtos,
-            key="gmv_filter",
-        )
+
+        if "produtos_ativos" not in st.session_state:
+            st.session_state["produtos_ativos"] = set(todos_produtos)
+
+        st.markdown("**Filtrar por produto:**")
+
+        cols_btn = st.columns(len(todos_produtos))
+        for i, produto in enumerate(todos_produtos):
+            cor       = PRODUCT_COLORS.get(i, "#90a4ae")
+            ativo     = produto in st.session_state["produtos_ativos"]
+            nome_curto = " ".join(produto.split()[:2])
+            opacidade  = "1.0" if ativo else "0.35"
+            borda      = f"3px solid {cor}" if ativo else "3px solid #444"
+            with cols_btn[i]:
+                st.markdown(
+                    f"""<div style="
+                        background:{cor};
+                        opacity:{opacidade};
+                        border:{borda};
+                        border-radius:20px;
+                        padding:4px 8px;
+                        text-align:center;
+                        font-size:11px;
+                        font-weight:600;
+                        color:#111;
+                        margin-bottom:4px;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                    ">{nome_curto}</div>""",
+                    unsafe_allow_html=True,
+                )
+                if st.button("✓" if ativo else "○", key=f"btn_{i}", use_container_width=True):
+                    if ativo:
+                        st.session_state["produtos_ativos"].discard(produto)
+                    else:
+                        st.session_state["produtos_ativos"].add(produto)
+                    st.rerun()
+
+        col_all, col_none = st.columns(2)
+        with col_all:
+            if st.button("Selecionar todos", use_container_width=True):
+                st.session_state["produtos_ativos"] = set(todos_produtos)
+                st.rerun()
+        with col_none:
+            if st.button("Limpar seleção", use_container_width=True):
+                st.session_state["produtos_ativos"] = set()
+                st.rerun()
+
+        selecionados = list(st.session_state["produtos_ativos"])
         gmv_filtrado = (
             gmv_df[gmv_df["product_name"].isin(selecionados)]
             if selecionados else gmv_df
@@ -353,16 +443,7 @@ with tab_chat:
 
     # ── Inicializa histórico ───────────────────────────────────
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [
-            {
-                "role": "assistant",
-                "content": (
-                    "Olá, Carlos! Sou seu copiloto de vendas. "
-                    "Posso analisar tendências, alertar sobre produtos em risco "
-                    "e sugerir ações práticas. O que você quer saber hoje?"
-                ),
-            }
-        ]
+        st.session_state["messages"] = load_history()
 
     # ── Botões de ação rápida ──────────────────────────────────
     st.markdown("**Ações rápidas:**")
@@ -381,6 +462,7 @@ with tab_chat:
                 question_to_ask = question
 
     if st.button("🗑️ Limpar conversa", key="clear_chat"):
+        HISTORY_FILE.unlink(missing_ok=True)
         st.session_state["messages"] = [
             {
                 "role": "assistant",
@@ -439,6 +521,7 @@ with tab_chat:
                 )
 
         st.session_state["messages"].append({"role": "assistant", "content": response})
+        save_history(st.session_state["messages"])
 
 
 # ══════════════════════════════════════════════════════════════

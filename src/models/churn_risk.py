@@ -1,6 +1,13 @@
 """
-Score de risco de churn por produto usando regras baseadas em features de tendência.
-Usa os últimos 90 dias disponíveis no dataset.
+Score de risco de churn por produto — modelo ponderado multi-feature.
+Lê data/synthetic/orders.csv e filtra os últimos 90 dias disponíveis.
+
+Pesos:
+  0.40 × queda_30   (queda de GMV nos últimos 30d vs. 30d anteriores)
+  0.25 × queda_60   (tendência de médio prazo)
+  0.20 × return_rate normalizada
+  0.15 × review normalizado
+
 Saída: outputs/sprint_2/churn_scores.csv + churn_chart.png
 """
 import os
@@ -10,133 +17,134 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "sprint_2")
+BASE_DIR      = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SYNTHETIC_DIR = os.path.join(BASE_DIR, "data", "synthetic")
+SPRINT2_DIR   = os.path.join(BASE_DIR, "outputs", "sprint_2")
+SPRINT3_DIR   = os.path.join(BASE_DIR, "outputs", "sprint_3")
 
 
-def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
-    max_date = df["date"].max()
+# ──────────────────────────────────────────────────────────────
+# Scoring
+# ──────────────────────────────────────────────────────────────
+
+def _score_products(orders: pd.DataFrame, forecast: pd.DataFrame | None) -> pd.DataFrame:
+    max_date  = orders["date"].max()
     cutoff_30 = max_date - pd.Timedelta(days=30)
     cutoff_60 = max_date - pd.Timedelta(days=60)
     cutoff_90 = max_date - pd.Timedelta(days=90)
 
-    products = df[["product_id", "product_name"]].drop_duplicates()
-    rows = []
+    products = (
+        orders[["product_id", "product_name"]]
+        .drop_duplicates()
+        .sort_values("product_id")
+    )
 
-    for _, row in products.iterrows():
-        pid = row["product_id"]
-        pname = row["product_name"]
-        p = df[df["product_id"] == pid]
+    records = []
 
-        def gmv_window(start, end):
-            return p[(p["date"] > start) & (p["date"] <= end)]["gmv"].sum()
+    for _, prod in products.iterrows():
+        pid   = prod["product_id"]
+        pname = prod["product_name"]
+        p     = orders[orders["product_id"] == pid]
 
-        gmv_30 = gmv_window(cutoff_30, max_date)
-        gmv_60 = gmv_window(cutoff_60, cutoff_30)
-        gmv_90 = gmv_window(cutoff_90, cutoff_60)
+        # ── janelas ──────────────────────────────────────────
+        periodo_30 = p[p["date"] > cutoff_30]                                    # últimos 30d
+        periodo_60 = p[(p["date"] > cutoff_60) & (p["date"] <= cutoff_30)]       # 31–60d atrás
+        periodo_90 = p[p["date"] > cutoff_90]                                    # últimos 90d
 
-        def safe_pct(a, b):
-            return (a - b) / (b + 1e-9) * 100
+        gmv_30 = float(periodo_30["gmv"].sum()) if not periodo_30.empty else 0.0
+        gmv_60 = float(periodo_60["gmv"].sum()) if not periodo_60.empty else 0.0
 
-        trend_30_60 = safe_pct(gmv_30, gmv_60)
-        trend_60_90 = safe_pct(gmv_60, gmv_90)
+        # ── features de GMV ──────────────────────────────────
+        if gmv_60 > 0:
+            queda_30 = max(0.0, (gmv_60 - gmv_30) / gmv_60)
+        else:
+            queda_30 = 0.0
 
-        last_30 = p[p["date"] > cutoff_30]
-        avg_conv = last_30["conversion_rate"].mean() if not last_30.empty else 0
-        return_rate = last_30["return_flag"].mean() if not last_30.empty else 0
-        avg_review = last_30["review_score"].mean() if not last_30.empty else 5.0
+        queda_60 = max(0.0, (gmv_60 - gmv_30) / (gmv_60 + gmv_30 + 1e-9))
 
-        rows.append({
-            "product_id": pid,
-            "product_name": pname,
-            "gmv_last_30d": round(gmv_30, 2),
-            "gmv_last_60d": round(gmv_60, 2),
-            "gmv_last_90d": round(gmv_90, 2),
-            "gmv_trend_30_60": round(trend_30_60, 1),
-            "gmv_trend_60_90": round(trend_60_90, 1),
-            "avg_conversion_last_30d": round(avg_conv, 4),
-            "return_rate_last_30d": round(return_rate, 4),
-            "avg_review_last_30d": round(avg_review, 2),
-        })
+        # variações percentuais para colunas informativas
+        gmv_var_30d = ((gmv_30 - gmv_60) / (gmv_60 + 1e-9) * 100)
+        gmv_var_60d = gmv_var_30d  # coluna informativa — mesma base neste modelo
 
-    return pd.DataFrame(rows)
+        # ── review ───────────────────────────────────────────
+        if not periodo_90.empty:
+            review_medio = float(periodo_90["review_score"].mean())
+        else:
+            review_medio = 5.0
+        review_norm = max(0.0, (5.0 - review_medio) / 5.0)
 
+        # ── devolução ────────────────────────────────────────
+        pedidos_90 = len(periodo_90)
+        devolucoes = int(periodo_90["return_flag"].sum()) if not periodo_90.empty else 0
+        return_rate = devolucoes / pedidos_90 if pedidos_90 > 0 else 0.0
 
-def _score_churn(feat: pd.DataFrame) -> pd.DataFrame:
-    """
-    Regras de scoring (0.0–1.0):
-    - Duas quedas consecutivas de GMV > 15%: +0.45
-    - Uma queda de GMV > 15%:                +0.20
-    - GMV_30d < 50% do GMV_90d:              +0.20
-    - Taxa de retorno > 5%:                  +0.10
-    - Review médio < 3.5:                    +0.10
-    - Conversão < 2%:                        +0.10
-    Score é limitado a 1.0.
-    """
-    scores = []
+        # ── score final ──────────────────────────────────────
+        c_queda30  = 0.40 * queda_30
+        c_queda60  = 0.25 * queda_60
+        c_retorno  = 0.20 * min(1.0, return_rate * 5)
+        c_review   = 0.15 * review_norm
 
-    for _, r in feat.iterrows():
-        score = 0.0
-        signals = []
+        score = round(min(1.0, max(0.0, c_queda30 + c_queda60 + c_retorno + c_review)), 4)
 
-        d30_60 = r["gmv_trend_30_60"]
-        d60_90 = r["gmv_trend_60_90"]
-
-        if d30_60 < -15 and d60_90 < -15:
-            score += 0.45
-            signals.append(f"queda consecutiva de GMV ({d60_90:+.0f}% e {d30_60:+.0f}%)")
-        elif d30_60 < -15:
-            score += 0.20
-            signals.append(f"queda de GMV nos últimos 30 dias ({d30_60:+.0f}%)")
-        elif d60_90 < -15:
-            score += 0.15
-            signals.append(f"queda de GMV de 30–60 dias atrás ({d60_90:+.0f}%)")
-
-        gmv_90 = r["gmv_last_90d"]
-        gmv_30 = r["gmv_last_30d"]
-        if gmv_90 > 0 and gmv_30 < gmv_90 * 0.50:
-            score += 0.20
-            signals.append("GMV atual abaixo de 50% do nível de 90 dias atrás")
-
-        if r["return_rate_last_30d"] > 0.05:
-            score += 0.10
-            signals.append(f"taxa de devolução elevada ({r['return_rate_last_30d']*100:.1f}%)")
-
-        if r["avg_review_last_30d"] < 3.5:
-            score += 0.10
-            signals.append(f"review médio baixo ({r['avg_review_last_30d']:.1f}★)")
-
-        if r["avg_conversion_last_30d"] < 0.02:
-            score += 0.10
-            signals.append(f"conversão abaixo de 2% ({r['avg_conversion_last_30d']*100:.2f}%)")
-
-        score = min(round(score, 2), 1.0)
-
-        if score >= 0.50:
+        # ── nível de risco ───────────────────────────────────
+        if score >= 0.40:
             risk_level = "High"
-        elif score >= 0.25:
+        elif score >= 0.20:
             risk_level = "Medium"
         else:
             risk_level = "Low"
 
-        main_signal = signals[0] if signals else "Sem sinais de alerta identificados"
+        # ── sinal principal ──────────────────────────────────
+        contribs = [
+            (c_queda30, f"Queda de GMV de {queda_30*100:.0f}% nos últimos 30 dias"),
+            (c_queda60, f"Queda acumulada de GMV de {queda_60*100:.0f}% no período de 60 dias"),
+            (c_retorno, f"Taxa de devolução elevada ({return_rate*100:.0f}%) nos últimos 90 dias"),
+            (c_review,  f"Review médio baixo ({review_medio:.1f} estrelas) nos últimos 90 dias"),
+        ]
+        top_contrib, main_signal = max(contribs, key=lambda t: t[0])
+        if top_contrib == 0.0:
+            main_signal = "Tendência estável — risco baixo"
 
-        scores.append({
-            "product_id": r["product_id"],
-            "product_name": r["product_name"],
-            "churn_risk_score": score,
-            "risk_level": risk_level,
-            "main_signal": main_signal,
+        records.append({
+            "product_id":         pid,
+            "product_name":       pname,
+            "churn_risk_score":   score,
+            "risk_level":         risk_level,
+            "main_signal":        main_signal,
+            "review_score_medio": round(review_medio, 2),
+            "return_rate_90d":    round(return_rate, 4),
+            "gmv_var_30d":        round(gmv_var_30d, 1),
+            "gmv_var_60d":        round(gmv_var_60d, 1),
+            "alerta_divergencia": False,
         })
 
-    return pd.DataFrame(scores).sort_values("churn_risk_score", ascending=False)
+    result = pd.DataFrame(records)
+
+    # ── divergência churn vs. forecast ───────────────────────
+    if forecast is not None and not forecast.empty:
+        for idx, row in result.iterrows():
+            fc = forecast[forecast["product_id"] == row["product_id"]]
+            if fc.empty:
+                continue
+            pct = float(fc.iloc[0]["pct_change"])
+            if pct < -50 and row["risk_level"] != "High":
+                result.at[idx, "alerta_divergencia"] = True
+                result.at[idx, "main_signal"] = (
+                    row["main_signal"]
+                    + f" | Atenção: forecast indica queda de {pct:.0f}%"
+                )
+
+    return result.sort_values("churn_risk_score", ascending=False).reset_index(drop=True)
 
 
-def _plot_churn(scores: pd.DataFrame, out_path: str):
+# ──────────────────────────────────────────────────────────────
+# Gráfico
+# ──────────────────────────────────────────────────────────────
+
+def _plot_churn(scores: pd.DataFrame, out_path: str) -> None:
     COLOR_MAP = {"Low": "#66bb6a", "Medium": "#ffa726", "High": "#ef5350"}
 
-    df = scores.sort_values("churn_risk_score")
+    df     = scores.sort_values("churn_risk_score")
     colors = [COLOR_MAP[r] for r in df["risk_level"]]
     labels = [n if len(n) <= 28 else n[:26] + "…" for n in df["product_name"]]
 
@@ -145,61 +153,88 @@ def _plot_churn(scores: pd.DataFrame, out_path: str):
     ax.set_facecolor("#0f1117")
 
     bars = ax.barh(labels, df["churn_risk_score"], color=colors, height=0.55)
-
-    for bar, score, level in zip(bars, df["churn_risk_score"], df["risk_level"]):
-        ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
-                f"{score:.2f}  {level}", va="center", ha="left",
-                color="white", fontsize=9)
+    for bar, sc, lvl in zip(bars, df["churn_risk_score"], df["risk_level"]):
+        ax.text(
+            bar.get_width() + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{sc:.3f}  {lvl}",
+            va="center", ha="left", color="white", fontsize=9,
+        )
 
     ax.set_xlim(0, 1.25)
-    ax.set_xlabel("Churn Risk Score (0 = sem risco · 1 = risco máximo)",
-                  color="#b0b8c1", fontsize=10)
+    ax.set_xlabel(
+        "Churn Risk Score (0 = sem risco · 1 = risco máximo)",
+        color="#b0b8c1", fontsize=10,
+    )
     ax.set_title("Risco de Churn por Produto", color="white", fontsize=13, pad=12)
     ax.tick_params(colors="#b0b8c1", labelsize=9)
     for spine in ax.spines.values():
         spine.set_edgecolor("#2a2d3e")
     ax.grid(axis="x", color="#2a2d3e", linewidth=0.6)
-    ax.axvline(0.50, color="#ef5350", linewidth=1, linestyle="--", alpha=0.5)
-    ax.axvline(0.25, color="#ffa726", linewidth=1, linestyle="--", alpha=0.5)
+    ax.axvline(0.40, color="#ef5350", linewidth=1, linestyle="--", alpha=0.5)
+    ax.axvline(0.20, color="#ffa726", linewidth=1, linestyle="--", alpha=0.5)
 
     from matplotlib.patches import Patch
-    legend_elements = [
-        Patch(facecolor="#66bb6a", label="Low (< 0.25)"),
-        Patch(facecolor="#ffa726", label="Medium (0.25–0.50)"),
-        Patch(facecolor="#ef5350", label="High (≥ 0.50)"),
-    ]
-    ax.legend(handles=legend_elements, facecolor="#1a1d2e", labelcolor="white", fontsize=9,
-              loc="lower right")
+    ax.legend(
+        handles=[
+            Patch(facecolor="#66bb6a", label="Low  (< 0.20)"),
+            Patch(facecolor="#ffa726", label="Medium (0.20–0.40)"),
+            Patch(facecolor="#ef5350", label="High  (>= 0.40)"),
+        ],
+        facecolor="#1a1d2e", labelcolor="white", fontsize=9, loc="lower right",
+    )
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=130, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
 
 
-def run():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+# ──────────────────────────────────────────────────────────────
+# Runner
+# ──────────────────────────────────────────────────────────────
 
-    orders_path = os.path.join(PROCESSED_DIR, "orders_clean.csv")
-    df = pd.read_csv(orders_path, parse_dates=["date"])
+def run() -> pd.DataFrame:
+    os.makedirs(SPRINT2_DIR, exist_ok=True)
 
-    print("Calculando features de churn ...")
-    features = _compute_features(df)
+    orders_path   = os.path.join(SYNTHETIC_DIR, "orders.csv")
+    forecast_path = os.path.join(SPRINT3_DIR,   "forecast_summary_corrigido.csv")
 
-    print("Aplicando regras de scoring ...")
-    scores = _score_churn(features)
+    orders = pd.read_csv(orders_path, parse_dates=["date"])
+    print(f"  {len(orders)} pedidos carregados")
+    print(f"  Intervalo de datas: {orders['date'].min().date()} a {orders['date'].max().date()}")
 
-    csv_path = os.path.join(OUTPUT_DIR, "churn_scores.csv")
+    if os.path.exists(forecast_path):
+        forecast = pd.read_csv(forecast_path)
+        print(f"  Forecast carregado: {len(forecast)} produtos")
+    else:
+        forecast = None
+        print("  Forecast não encontrado — divergência não será detectada")
+
+    print("\nCalculando scores ...")
+    scores = _score_products(orders, forecast)
+
+    # CSV
+    csv_path = os.path.join(SPRINT2_DIR, "churn_scores.csv")
     scores.to_csv(csv_path, index=False)
-    print(f"  -> churn_scores.csv salvo em {csv_path}")
+    print(f"  -> churn_scores.csv salvo ({len(scores)} produtos)")
 
-    chart_path = os.path.join(OUTPUT_DIR, "churn_chart.png")
+    # Gráfico
+    chart_path = os.path.join(SPRINT2_DIR, "churn_chart.png")
     _plot_churn(scores, chart_path)
-    print(f"  -> churn_chart.png salvo em {chart_path}")
+    print(f"  -> churn_chart.png salvo")
 
-    print("\n  Resultado por produto:")
+    # Resumo
+    col_w = max(len(n) for n in scores["product_name"]) + 2
+    print(f"\n  {'Produto':<{col_w}} {'Score':>6}  {'Nível':<8}  {'Diverg.':<8}  Sinal")
+    print("  " + "-" * (col_w + 62))
     for _, r in scores.iterrows():
-        print(f"  [{r['product_id']}] {r['risk_level']:6s}  score={r['churn_risk_score']:.2f}  "
-              f"— {r['main_signal']}")
+        div    = "SIM" if r["alerta_divergencia"] else "nao"
+        sinal  = r["main_signal"][:65] + ("…" if len(r["main_signal"]) > 65 else "")
+        print(f"  {r['product_name']:<{col_w}} "
+              f"{r['churn_risk_score']:>6.3f}  "
+              f"{r['risk_level']:<8}  "
+              f"{div:<8}  "
+              f"{sinal}")
 
     return scores
 

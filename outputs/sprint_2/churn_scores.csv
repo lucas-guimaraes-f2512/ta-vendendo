@@ -1,9 +1,9 @@
-product_id,product_name,churn_risk_score,risk_level,main_signal
-PROD007,Fone In-Ear Com Fio Samsung AKG,0.4,Medium,queda de GMV nos últimos 30 dias (-79%)
-PROD004,Suporte Veicular para Celular,0.3,Medium,queda de GMV nos últimos 30 dias (-18%)
-PROD002,Carregador Turbo 65W USB-C,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
-PROD001,Fone de Ouvido Bluetooth JBL T510,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
-PROD003,Cabo USB-C para USB-C 2m,0.2,Low,queda de GMV nos últimos 30 dias (-20%)
-PROD005,Película Vidro Temperado iPhone 15,0.2,Low,queda de GMV nos últimos 30 dias (-21%)
-PROD006,Hub USB 4 portas 3.0,0.2,Low,queda de GMV nos últimos 30 dias (-22%)
-PROD008,Cabo Lightning para USB 1m (Apple),0.2,Low,queda de GMV nos últimos 30 dias (-49%)
+product_id,product_name,churn_risk_score,risk_level,main_signal,review_score_medio,return_rate_90d,gmv_var_30d,gmv_var_60d,alerta_divergencia
+PROD008,Cabo Lightning para USB 1m (Apple),0.5303,High,Queda de GMV de 71% nos últimos 30 dias,3.54,0.0625,-71.3,-71.3,False
+PROD007,Fone In-Ear Com Fio Samsung AKG,0.4821,High,Queda de GMV de 77% nos últimos 30 dias,4.3,0.0,-76.5,-76.5,False
+PROD002,Carregador Turbo 65W USB-C,0.3692,Medium,Queda de GMV de 45% nos últimos 30 dias | Atenção: forecast indica queda de -96%,3.95,0.0833,-45.3,-45.3,True
+PROD006,Hub USB 4 portas 3.0,0.3099,Medium,Queda de GMV de 46% nos últimos 30 dias,3.99,0.0238,-45.5,-45.5,False
+PROD001,Fone de Ouvido Bluetooth JBL T510,0.3038,Medium,Queda de GMV de 51% nos últimos 30 dias,4.59,0.0,-51.3,-51.3,False
+PROD004,Suporte Veicular para Celular,0.2716,Medium,Queda de GMV de 30% nos últimos 30 dias,4.07,0.0816,-29.6,-29.6,False
+PROD005,Película Vidro Temperado iPhone 15,0.2018,Medium,Queda de GMV de 34% nos últimos 30 dias,4.53,0.0,-34.1,-34.1,False
+PROD003,Cabo USB-C para USB-C 2m,0.1316,Low,Queda de GMV de 17% nos últimos 30 dias,4.37,0.0204,-17.2,-17.2,False

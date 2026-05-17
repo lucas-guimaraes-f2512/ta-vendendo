@@ -23,14 +23,14 @@ END_DATE = datetime(2025, 6, 30)
 
 # --- Catálogo de produtos ---
 PRODUCTS = [
-    {"id": "PROD001", "name": "Fone de Ouvido Bluetooth JBL T510",   "category": "Audio",       "base_price": 189.90, "base_daily_units": 3.2},
-    {"id": "PROD002", "name": "Carregador Turbo 65W USB-C",           "category": "Carregadores","base_price": 89.90,  "base_daily_units": 5.1},
-    {"id": "PROD003", "name": "Cabo USB-C para USB-C 2m",             "category": "Cabos",       "base_price": 29.90,  "base_daily_units": 7.8},
-    {"id": "PROD004", "name": "Suporte Veicular para Celular",         "category": "Acessórios",  "base_price": 49.90,  "base_daily_units": 4.5},
-    {"id": "PROD005", "name": "Película Vidro Temperado iPhone 15",   "category": "Proteção",    "base_price": 24.90,  "base_daily_units": 6.2},
-    {"id": "PROD006", "name": "Hub USB 4 portas 3.0",                 "category": "Conectividade","base_price": 79.90, "base_daily_units": 2.8},
-    {"id": "PROD007", "name": "Fone In-Ear Com Fio Samsung AKG",      "category": "Audio",       "base_price": 59.90,  "base_daily_units": 1.5},  # tendência de queda
-    {"id": "PROD008", "name": "Cabo Lightning para USB 1m (Apple)",   "category": "Cabos",       "base_price": 39.90,  "base_daily_units": 1.8},  # tendência de queda
+    {"id": "PROD001", "name": "Fone de Ouvido Bluetooth JBL T510",   "category": "Audio",        "base_price": 189.90, "base_daily_units": 3.2, "return_rate": 0.025, "avg_review": 4.7, "review_std": 0.3},
+    {"id": "PROD002", "name": "Carregador Turbo 65W USB-C",           "category": "Carregadores", "base_price": 89.90,  "base_daily_units": 5.1, "return_rate": 0.055, "avg_review": 3.9, "review_std": 0.6},
+    {"id": "PROD003", "name": "Cabo USB-C para USB-C 2m",             "category": "Cabos",        "base_price": 29.90,  "base_daily_units": 7.8, "return_rate": 0.030, "avg_review": 4.5, "review_std": 0.3},
+    {"id": "PROD004", "name": "Suporte Veicular para Celular",         "category": "Acessórios",   "base_price": 49.90,  "base_daily_units": 4.5, "return_rate": 0.028, "avg_review": 4.4, "review_std": 0.4},
+    {"id": "PROD005", "name": "Película Vidro Temperado iPhone 15",   "category": "Proteção",     "base_price": 24.90,  "base_daily_units": 6.2, "return_rate": 0.018, "avg_review": 4.6, "review_std": 0.3},
+    {"id": "PROD006", "name": "Hub USB 4 portas 3.0",                 "category": "Conectividade","base_price": 79.90,  "base_daily_units": 2.8, "return_rate": 0.048, "avg_review": 4.1, "review_std": 0.5},
+    {"id": "PROD007", "name": "Fone In-Ear Com Fio Samsung AKG",      "category": "Audio",        "base_price": 59.90,  "base_daily_units": 1.5, "return_rate": 0.022, "avg_review": 4.3, "review_std": 0.4},  # tendência de queda
+    {"id": "PROD008", "name": "Cabo Lightning para USB 1m (Apple)",   "category": "Cabos",        "base_price": 39.90,  "base_daily_units": 1.8, "return_rate": 0.060, "avg_review": 3.7, "review_std": 0.7},  # tendência de queda
 ]
 
 # --- Fatores sazonais por mês ---
@@ -49,11 +49,47 @@ SEASONAL_FACTORS = {
     12: 1.60,  # Dezembro: Natal
 }
 
+# --- Fatores sazonais por categoria ---
+CATEGORY_SEASONAL_FACTORS = {
+    "Audio": {
+        1: 0.80, 2: 0.65, 3: 0.70, 4: 0.85, 5: 1.10,
+        6: 0.90, 7: 0.95, 8: 1.15,
+        9: 0.92, 10: 1.05, 11: 1.90, 12: 1.75,
+    },
+    "Carregadores": {
+        1: 0.85, 2: 0.70, 3: 0.80, 4: 0.90, 5: 0.95,
+        6: 0.95, 7: 0.90, 8: 0.92, 9: 0.98,
+        10: 1.05, 11: 1.80, 12: 1.65,
+    },
+    "Cabos": {
+        1: 0.88, 2: 0.75, 3: 0.82, 4: 0.90, 5: 0.92,
+        6: 0.93, 7: 0.88, 8: 0.90, 9: 0.95,
+        10: 1.02, 11: 1.70, 12: 1.50,
+    },
+    "Proteção": {
+        1: 0.80, 2: 0.65, 3: 0.72, 4: 0.85, 5: 0.88,
+        6: 0.85, 7: 0.88, 8: 0.90, 9: 1.45,
+        10: 1.10, 11: 1.85, 12: 1.40,
+    },
+    "Acessórios": {
+        1: 0.82, 2: 0.68, 3: 0.75, 4: 0.88, 5: 0.92,
+        6: 1.05, 7: 0.90, 8: 0.93, 9: 0.95,
+        10: 1.05, 11: 1.75, 12: 1.60,
+    },
+    "Conectividade": {
+        1: 0.90, 2: 0.78, 3: 1.05, 4: 0.92, 5: 0.93,
+        6: 0.95, 7: 0.85, 8: 1.08, 9: 1.00,
+        10: 1.05, 11: 1.65, 12: 1.45,
+    },
+}
+
 PLATFORM_FEE_PCT = 0.14  # 14% fee médio Mercado Livre
 
 
 def seasonal_multiplier(date: datetime, product_id: str) -> float:
-    month_factor = SEASONAL_FACTORS[date.month]
+    category = next(p["category"] for p in PRODUCTS if p["id"] == product_id)
+    base_factors = CATEGORY_SEASONAL_FACTORS.get(category, SEASONAL_FACTORS)
+    month_factor = base_factors[date.month]
 
     # Black Friday: semana específica novembro 2024 (semana 4)
     if date.year == 2024 and date.month == 11 and 25 <= date.day <= 30:
@@ -84,6 +120,13 @@ def generate_orders() -> pd.DataFrame:
 
             # Ruído aleatório diário
             units = max(0, int(np.random.poisson(base_units)))
+
+            # MELHORIA 5 — Ruptura de estoque PROD006 (fev-abr 2025)
+            if prod["id"] == "PROD006" and datetime(2025, 2, 15) <= current <= datetime(2025, 4, 10):
+                units = 0  # sem estoque — não gera pedido
+                current += timedelta(days=1)
+                continue
+
             if units == 0:
                 current += timedelta(days=1)
                 continue
@@ -92,20 +135,35 @@ def generate_orders() -> pd.DataFrame:
             price_variation = np.random.uniform(-0.08, 0.08)
             unit_price = round(prod["base_price"] * (1 + price_variation), 2)
 
+            # MELHORIA 4 — Erosão competitiva: -0.3% ao mês a partir do 4º mês
+            months_elapsed = (current.year - START_DATE.year) * 12 + (current.month - START_DATE.month)
+            if months_elapsed > 3:
+                competitive_decay = max(0.82, 1.0 - 0.003 * (months_elapsed - 3))
+                unit_price = round(unit_price * competitive_decay, 2)
+
+            # MELHORIA 4 — Desconto explícito Black Friday: 12-18%
+            if current.year == 2024 and current.month == 11 and 25 <= current.day <= 30:
+                bf_discount = np.random.uniform(0.12, 0.18)
+                unit_price = round(unit_price * (1 - bf_discount), 2)
+
             gmv = round(units * unit_price, 2)
 
             # Visitas: conversão típica de 2-6%
             conversion_rate = round(np.random.uniform(0.02, 0.06), 4)
             visit_count = max(units, int(units / conversion_rate))
 
-            # Devoluções: ~3% dos pedidos
-            return_flag = 1 if random.random() < 0.03 else 0
+            # MELHORIA 2 — Devolução por taxa específica do produto
+            return_flag = 1 if random.random() < prod["return_rate"] else 0
 
-            # Review score: 3.5 a 5.0, correlacionado com retorno
+            # MELHORIA 3 — Review correlacionado ao produto e ao retorno
             if return_flag:
-                review_score = round(np.random.uniform(1.5, 3.5), 1)
+                review_score = round(max(1.0, min(5.0,
+                    np.random.normal(1.8, 0.6)
+                )), 1)
             else:
-                review_score = round(np.random.uniform(4.0, 5.0), 1)
+                review_score = round(max(3.0, min(5.0,
+                    np.random.normal(prod["avg_review"], prod["review_std"])
+                )), 1)
 
             rows.append({
                 "order_id": order_id,

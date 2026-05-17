@@ -201,6 +201,67 @@ def _docs_limitacoes() -> list[dict]:
     ]
 
 
+def _docs_concentracao(conc_df: pd.DataFrame) -> list[dict]:
+    """Um documento por produto classificado como crítico ou relevante."""
+    docs = []
+    for _, row in conc_df.iterrows():
+        if row["classificacao"] in ["crítico", "relevante"]:
+            texto = (
+                f"O produto {row['product_name']} representa {row['pct_receita']:.1f}% "
+                f"do faturamento total do Carlos, com GMV de R${row['gmv_total_periodo']:,.2f} "
+                f"no período analisado. Classificação: {row['classificacao']}. "
+            )
+            if row["classificacao"] == "crítico":
+                texto += "Perder esse produto teria impacto severo no faturamento."
+            docs.append({
+                "id":   f"concentracao_{row['product_id']}",
+                "text": texto,
+                "meta": {"tipo": "concentracao", "product_id": row["product_id"]},
+            })
+    return docs
+
+
+def _docs_sazonalidade(season_df: pd.DataFrame) -> list[dict]:
+    """Um documento por mês fora do padrão normal (pico ou baixo)."""
+    docs = []
+    for _, row in season_df.iterrows():
+        if row["classificacao"] != "normal":
+            texto = (
+                f"{row['mes_nome']} é historicamente um mês de {row['classificacao']} "
+                f"para as vendas do Carlos. O índice sazonal é {row['indice_sazonal']:.2f} "
+                f"(média geral = 1.00), com GMV médio de R${row['gmv_medio_mensal']:,.2f}. "
+            )
+            if row["classificacao"] == "pico":
+                texto += "É recomendável aumentar o estoque antes desse período."
+            else:
+                texto += "As vendas tendem a ser menores nesse mês — ajuste expectativas e custos."
+            docs.append({
+                "id":   f"sazonalidade_mes_{row['mes']:02d}",
+                "text": texto,
+                "meta": {"tipo": "sazonalidade", "mes": int(row["mes"])},
+            })
+    return docs
+
+
+def _docs_receita_liquida(net_df: pd.DataFrame) -> list[dict]:
+    """Um documento com resumo de receita líquida por produto."""
+    docs = []
+    for _, row in net_df.iterrows():
+        texto = (
+            f"A receita líquida do produto {row['product_name']} após as taxas do "
+            f"Mercado Livre ({row['taxa_media_ml']*100:.0f}%) é de "
+            f"R${row['receita_liquida']:,.2f} no período analisado. "
+            f"O ticket líquido médio por unidade vendida é R${row['ticket_liquido']:.2f}. "
+            f"O GMV bruto era R${row['gmv_bruto']:,.2f}."
+        )
+        docs.append({
+            "id":   f"liquido_{row['product_id']}",
+            "text": texto,
+            "meta": {"tipo": "receita_liquida", "product_id": row["product_id"]},
+        })
+    return docs
+
+
 def _doc_resumo_executivo(profile: dict, orders_path: str) -> dict:
     orders    = pd.read_csv(orders_path)
     gmv_total = orders["gmv"].sum()
@@ -246,12 +307,24 @@ def index_all(reset: bool = True) -> dict:
     forecast_df = pd.read_csv(forecast_path)
     churn_df    = pd.read_csv(churn_path)
 
+    SPRINT4_DIR = os.path.join(BASE_DIR, "outputs", "sprint_4")
+    conc_path   = os.path.join(SPRINT4_DIR, "revenue_concentration.csv")
+    season_path = os.path.join(SPRINT4_DIR, "seasonality_index.csv")
+    net_path    = os.path.join(SPRINT4_DIR, "net_revenue.csv")
+
+    conc_df   = pd.read_csv(conc_path)   if os.path.exists(conc_path)   else pd.DataFrame()
+    season_df = pd.read_csv(season_path) if os.path.exists(season_path) else pd.DataFrame()
+    net_df    = pd.read_csv(net_path)    if os.path.exists(net_path)    else pd.DataFrame()
+
     all_docs = (
         _docs_perfil(profile)
         + _docs_tendencias(forecast_df)
         + _docs_churn(churn_df)
         + _docs_limitacoes()
         + [_doc_resumo_executivo(profile, orders_path)]
+        + (_docs_concentracao(conc_df)   if not conc_df.empty   else [])
+        + (_docs_sazonalidade(season_df) if not season_df.empty else [])
+        + (_docs_receita_liquida(net_df) if not net_df.empty    else [])
     )
 
     embedding_fn = _get_embedding_fn()

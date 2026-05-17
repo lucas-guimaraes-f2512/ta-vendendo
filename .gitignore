@@ -26,6 +26,10 @@ outputs/**
 !outputs/sprint_2/churn_scores.csv
 !outputs/sprint_3/
 !outputs/sprint_3/forecast_summary_corrigido.csv
+!outputs/sprint_4/
+!outputs/sprint_4/revenue_concentration.csv
+!outputs/sprint_4/seasonality_index.csv
+!outputs/sprint_4/net_revenue.csv
 
 # IDEs
 .vscode/

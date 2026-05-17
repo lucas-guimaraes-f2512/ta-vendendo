@@ -1,0 +1,13 @@
+mes,mes_nome,gmv_medio_mensal,indice_sazonal,classificacao
+1,Janeiro,25700.03,0.7104,baixo
+2,Fevereiro,16826.08,0.4651,baixo
+3,Março,24906.56,0.6885,baixo
+4,Abril,34464.1,0.9527,normal
+5,Maio,37888.84,1.0473,normal
+6,Junho,25974.05,0.718,baixo
+7,Julho,38637.44,1.068,normal
+8,Agosto,32851.89,0.9081,normal
+9,Setembro,41296.48,1.1415,normal
+10,Outubro,50991.35,1.4095,normal
+11,Novembro,87354.3,2.4147,pico
+12,Dezembro,86439.57,2.3894,pico

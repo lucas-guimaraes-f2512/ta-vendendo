@@ -1,16 +1,15 @@
 """
 Elasticidade de preço via regressão log-log e correlação.
-Analisa os 3 produtos com maior volume de vendas.
-Saída: outputs/sprint_2/elasticity_report.csv
+Analisa todos os 8 produtos do catálogo sintético.
+Saída: outputs/sprint_4/elasticity_report.csv
 """
 import os
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "sprint_2")
+BASE_DIR   = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "sprint_4")
 
 
 def _estimate_elasticity(df_prod: pd.DataFrame) -> dict:
@@ -61,21 +60,21 @@ def _build_recommendation(elasticity: float, current_price: float, prod_name: st
 def run():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    orders_path = os.path.join(PROCESSED_DIR, "orders_clean.csv")
+    orders_path = os.path.join(BASE_DIR, "data", "synthetic", "orders.csv")
     df = pd.read_csv(orders_path, parse_dates=["date"])
 
-    # Top 3 produtos por volume total
-    top3 = (
+    # Todos os produtos, ordenados por volume total
+    todos = (
         df.groupby(["product_id", "product_name"])["units_sold"]
         .sum()
-        .nlargest(3)
         .reset_index()
+        .sort_values("units_sold", ascending=False)
     )
 
-    print(f"Top 3 produtos por volume: {top3['product_name'].tolist()}")
+    print(f"Produtos a analisar ({len(todos)}): {todos['product_name'].tolist()}")
 
     rows = []
-    for _, row in top3.iterrows():
+    for _, row in todos.iterrows():
         pid = row["product_id"]
         pname = row["product_name"]
         df_prod = df[df["product_id"] == pid]

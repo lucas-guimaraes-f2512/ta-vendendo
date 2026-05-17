@@ -1,0 +1,9 @@
+product_id,product_name,elasticity_coefficient,r2_score,current_price,recommended_action,expected_impact
+PROD003,Cabo USB-C para USB-C 2m,0.072,0.0,28.81,Preço atual já está no ponto ótimo observado,Elasticidade baixa (0.07): variações de preço têm pouco efeito
+PROD005,Película Vidro Temperado iPhone 15,0.186,0.001,24.0,Aumentar preço pode não reduzir conversão significativamente,Correlação positiva incomum (0.19): produto de alto valor percebido
+PROD002,Carregador Turbo 65W USB-C,-0.379,0.004,85.66,Preço atual já está no ponto ótimo observado,Elasticidade baixa (-0.38): variações de preço têm pouco efeito
+PROD004,Suporte Veicular para Celular,-0.227,0.001,47.81,Preço atual já está no ponto ótimo observado,Elasticidade baixa (-0.23): variações de preço têm pouco efeito
+PROD001,Fone de Ouvido Bluetooth JBL T510,-0.179,0.001,181.05,Preço atual já está no ponto ótimo observado,Elasticidade baixa (-0.18): variações de preço têm pouco efeito
+PROD006,Hub USB 4 portas 3.0,0.314,0.003,76.13,Aumentar preço pode não reduzir conversão significativamente,Correlação positiva incomum (0.31): produto de alto valor percebido
+PROD008,Cabo Lightning para USB 1m (Apple),-0.187,0.001,38.51,Preço atual já está no ponto ótimo observado,Elasticidade baixa (-0.19): variações de preço têm pouco efeito
+PROD007,Fone In-Ear Com Fio Samsung AKG,0.024,0.0,57.06,Preço atual já está no ponto ótimo observado,Elasticidade baixa (0.02): variações de preço têm pouco efeito

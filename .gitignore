@@ -30,6 +30,7 @@ outputs/**
 !outputs/sprint_4/revenue_concentration.csv
 !outputs/sprint_4/seasonality_index.csv
 !outputs/sprint_4/net_revenue.csv
+!outputs/sprint_4/elasticity_report.csv
 
 # IDEs
 .vscode/

@@ -33,6 +33,8 @@ def _score_products(orders: pd.DataFrame, forecast: pd.DataFrame | None) -> pd.D
     cutoff_60 = max_date - pd.Timedelta(days=60)
     cutoff_90 = max_date - pd.Timedelta(days=90)
 
+    gmv_total_all = float(orders["gmv"].sum())
+
     products = (
         orders[["product_id", "product_name"]]
         .drop_duplicates()
@@ -62,9 +64,14 @@ def _score_products(orders: pd.DataFrame, forecast: pd.DataFrame | None) -> pd.D
 
         queda_60 = max(0.0, (gmv_60 - gmv_30) / (gmv_60 + gmv_30 + 1e-9))
 
-        # variações percentuais para colunas informativas
+        # gmv_var_30d: últimos 30d vs. 31–60d atrás
         gmv_var_30d = ((gmv_30 - gmv_60) / (gmv_60 + 1e-9) * 100)
-        gmv_var_60d = gmv_var_30d  # coluna informativa — mesma base neste modelo
+
+        # gmv_var_60d: janela 31–60d vs. janela 61–90d
+        periodo_prev = p[(p["date"] > (max_date - pd.Timedelta(days=90))) &
+                         (p["date"] <= (max_date - pd.Timedelta(days=60)))]
+        gmv_prev = float(periodo_prev["gmv"].sum()) if not periodo_prev.empty else 0.0
+        gmv_var_60d = ((gmv_60 - gmv_prev) / (gmv_prev + 1e-9) * 100)
 
         # ── review ───────────────────────────────────────────
         if not periodo_90.empty:
@@ -85,6 +92,14 @@ def _score_products(orders: pd.DataFrame, forecast: pd.DataFrame | None) -> pd.D
         c_review   = 0.15 * review_norm
 
         score = round(min(1.0, max(0.0, c_queda30 + c_queda60 + c_retorno + c_review)), 4)
+
+        # ── proteção para produtos âncora (> 20% do GMV total) ──────────
+        gmv_total_prod = float(p["gmv"].sum())
+        pct_receita    = gmv_total_prod / (gmv_total_all + 1e-9)
+        if pct_receita > 0.20:
+            c_queda30 *= 0.60
+            c_queda60 *= 0.60
+            score = round(min(1.0, max(0.0, c_queda30 + c_queda60 + c_retorno + c_review)), 4)
 
         # ── nível de risco ───────────────────────────────────
         if score >= 0.40:

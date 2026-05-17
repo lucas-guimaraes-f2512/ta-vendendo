@@ -89,15 +89,15 @@ st.markdown("""
 <style>
     .stProgress > div > div { border-radius: 4px; }
     [data-testid="stSidebar"] { background: #111827; }
-    button[data-testid="stBaseButton-secondary"] {
-        opacity: 0; position: absolute; top: 0; left: 0;
-        width: 100%; height: 100%; cursor: pointer;
-    }
-    div[data-testid="column"] { position: relative; }
     /* Remove borda azul padrão dos expanders */
     [data-testid="stExpander"] { border: none !important; }
     /* Área do chat com leve separação do topo */
     [data-testid="stChatMessageContainer"] { margin-top: 8px; }
+    /* Ticker de notificações */
+    @keyframes marquee-scroll {
+        0%   { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -157,6 +157,12 @@ def load_net_revenue() -> pd.DataFrame:
     return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
 
+@st.cache_data
+def load_elasticity() -> pd.DataFrame:
+    path = ROOT_DIR / "outputs" / "sprint_4" / "elasticity_report.csv"
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
+
+
 # ── Carrega uma vez ───────────────────────────────────────────
 profile       = load_profile()
 gmv_df        = load_weekly_gmv()
@@ -165,6 +171,7 @@ churn         = load_churn()
 concentration = load_concentration()
 seasonality   = load_seasonality()
 net_revenue   = load_net_revenue()
+elasticity    = load_elasticity()
 
 # ── Métricas derivadas (usadas na sidebar E nos KPIs) ─────────
 if not gmv_df.empty:
@@ -251,6 +258,58 @@ tab_dash, tab_chat = st.tabs(["📊 Dashboard", "💬 Chat com o copiloto"])
 
 with tab_dash:
     st.markdown("## Visão geral das vendas")
+
+    # ── Ticker de notificações ────────────────────────────────
+    import datetime as _dt
+    _ticker_items = []
+
+    if not churn.empty:
+        for _, _r in churn[churn["risk_level"].isin(["High", "Medium"])].iterrows():
+            _ico = "🚨" if _r["risk_level"] == "High" else "⚠️"
+            _ticker_items.append(
+                f"{_ico} {_r['product_name']} — risco {_r['risk_level'].lower()} "
+                f"(score {_r['churn_risk_score']:.2f})"
+            )
+
+    if not concentration.empty:
+        for _, _r in concentration[concentration["classificacao"] == "crítico"].iterrows():
+            _ticker_items.append(
+                f"💰 {_r['product_name']} — {_r['pct_receita']:.1f}% do faturamento"
+            )
+
+    if not seasonality.empty:
+        _mes_hoje = _dt.date.today().month
+        for _mes in [_mes_hoje, (_mes_hoje % 12) + 1]:
+            _rs = seasonality[seasonality["mes"] == _mes]
+            if not _rs.empty:
+                _rs = _rs.iloc[0]
+                if _rs["classificacao"] == "pico":
+                    _ticker_items.append(
+                        f"📈 {_rs['mes_nome']} — mês de pico (índice {_rs['indice_sazonal']:.2f}×)"
+                    )
+                elif _rs["classificacao"] == "baixo":
+                    _ticker_items.append(
+                        f"📉 {_rs['mes_nome']} — mês fraco (índice {_rs['indice_sazonal']:.2f}×)"
+                    )
+
+    if _ticker_items:
+        _sep  = "     ·     "
+        _text = _sep.join(_ticker_items)
+        _full = _text + _sep + _text           # duplicado p/ loop contínuo
+        _dur  = max(18, len(_full) // 12)      # ~12 chars/s → leitura confortável
+        st.markdown(
+            f"""<div style="background:#1e2130;border:1px solid #2a2d3e;
+                border-radius:8px;padding:9px 0;overflow:hidden;
+                margin-bottom:8px;">
+              <div style="display:inline-block;white-space:nowrap;
+                  animation:marquee-scroll {_dur}s linear infinite;">
+                <span style="font-size:13px;color:#b0b8c1;padding-left:48px;">
+                  {_full}
+                </span>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
     # ── Bloco de KPIs ─────────────────────────────────────────
     kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
@@ -347,53 +406,16 @@ with tab_dash:
     if _alertas_exibidos == 0:
         st.success("✅ Nenhum alerta no momento. Tudo em ordem.")
 
-    # ── Filtro visual com botões coloridos (fora das colunas) ────
+    # ── Filtro por produto (dropdown) ────────────────────────────
     if not gmv_df.empty:
-        PRODUCT_COLORS = {i: c for i, c in enumerate(PALETTE["products"])}
-
         todos_produtos = sorted(gmv_df["product_name"].unique().tolist())
-
-        if "produtos_ativos" not in st.session_state:
-            st.session_state["produtos_ativos"] = set(todos_produtos)
-
-        st.markdown("**Filtrar por produto:**")
-        cols_btn = st.columns(len(todos_produtos))
-        for i, produto in enumerate(todos_produtos):
-            cor = PRODUCT_COLORS.get(i, "#90a4ae")
-            ativo = produto in st.session_state["produtos_ativos"]
-            nome_curto = " ".join(produto.split()[:2])
-            bg = cor if ativo else "transparent"
-            borda = f"2px solid {cor}"
-            texto_cor = "#111" if ativo else cor
-            with cols_btn[i]:
-                st.markdown(
-                    f"""<div style="
-                        background:{bg};border:{borda};border-radius:20px;
-                        padding:5px 10px;text-align:center;font-size:11px;
-                        font-weight:600;color:{texto_cor};cursor:pointer;
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                    ">{nome_curto}</div>""",
-                    unsafe_allow_html=True,
-                )
-                if st.button(" ", key=f"btn_{i}", use_container_width=True,
-                             help=produto):
-                    if ativo:
-                        st.session_state["produtos_ativos"].discard(produto)
-                    else:
-                        st.session_state["produtos_ativos"].add(produto)
-                    st.rerun()
-
-        col_all, col_none = st.columns(2)
-        with col_all:
-            if st.button("Selecionar todos", use_container_width=True):
-                st.session_state["produtos_ativos"] = set(todos_produtos)
-                st.rerun()
-        with col_none:
-            if st.button("Limpar seleção", use_container_width=True):
-                st.session_state["produtos_ativos"] = set()
-                st.rerun()
-
-        selecionados = list(st.session_state["produtos_ativos"])
+        selecionados = st.multiselect(
+            "Filtrar produtos no gráfico de GMV:",
+            options=todos_produtos,
+            default=todos_produtos,
+            key="gmv_filter",
+            placeholder="Selecione um ou mais produtos...",
+        )
         gmv_filtrado = (
             gmv_df[gmv_df["product_name"].isin(selecionados)]
             if selecionados else gmv_df
@@ -540,6 +562,19 @@ with tab_dash:
         st.caption("🟢 Saudável   🟠 Atenção   🔴 Dependência crítica")
     else:
         st.info("Dados de concentração não disponíveis. Execute `python src/models/business_insights.py`.")
+
+    # ── Recomendações de preço ─────────────────────────────────
+    st.markdown("### 💡 Recomendações de preço")
+    if not elasticity.empty:
+        for _, row in elasticity.iterrows():
+            icon = "📈" if row["elasticity_coefficient"] > 0.3 else "💰"
+            st.info(
+                f"{icon} **{row['product_name']}** — "
+                f"{row['recommended_action']}  \n"
+                f"_{row['expected_impact']}_"
+            )
+    else:
+        st.info("Execute `python src/models/price_elasticity.py` para gerar recomendações.")
 
 
 # ──────────────────────────────────────────────────────────────
